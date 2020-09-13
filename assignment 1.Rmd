@@ -1,0 +1,130 @@
+---
+title: "assignment 1"
+author: "Gabriel Coll"
+date: "9/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+Here is my rough draft for assignment one. I have borrowed Taelor Malcolm's code for the data collection. 
+
+Also, this does not need to be graded since I am auditing the course. 
+
+```{r cars}
+library(ggplot2)
+library(tidyverse)
+
+library(tidycensus)
+library(viridis)
+library(ggthemes)
+
+vars <- c("B06009_004",
+          "B25001_001",
+          "B25003_003",
+          "B06007_002",
+          "B01002_001",
+          "B01003_001",
+          "B03002_003",
+          "B03002_004",
+          "B03002_006",
+          "B03002_012",
+          "B01001_026",
+          "B06010_003",
+          "B06010_004",
+          "B06010_005",
+          "B06010_006",
+          "B06010_007",
+          "B06010_008",
+          "B06010_009",
+          "B06010_010",
+          "B06010_011")
+
+ct_tracts <- get_acs(geography = "tract", variables = vars,
+                     state = "CT", county = "Hartford", output = "wide") %>% 
+  rename(tot_bach = "B06009_004E",
+         tot_hh = "B25001_001E",
+         tot_rent_occ = "B25003_003E",
+         tot_eng = "B06007_002E",
+         med_age = "B01002_001E",
+         tot_pop = "B01003_001E",
+         pop_inc = "B06010_003E",
+         bel_10 = "B06010_004E", 
+         bel_15 = "B06010_005E",
+         bel_25 = "B06010_006E",
+         bel_35 = "B06010_007E",
+         bel_50 = "B06010_008E",
+         bel_65 = "B06010_009E",
+         bel_75 = "B06010_010E",
+         abo_75 = "B06010_011E",
+         nh_white_pop = "B03002_003E",
+         nh_black_pop = "B03002_004E",
+         nh_asian_pop = "B03002_006E",
+         hispanic_pop = "B03002_012E") %>%
+  mutate(pct_rent_occ = tot_rent_occ / tot_hh,
+         pct_bach = tot_bach / tot_pop,
+         pct_eng = tot_eng / tot_pop,
+         majority_inc = case_when(
+           (bel_10 + bel_15 + bel_25) / pop_inc > 0.5 ~ "bel_25",
+           (bel_35 + bel_50 + bel_65 + abo_75) / pop_inc > 0.5 ~ "abo_25",
+           (bel_10 + bel_15 + bel_25 + bel_35 + bel_50 + bel_65 +
+              bel_75 + abo_75)/pop_inc < 0.5 ~ "other", 
+           TRUE ~ "None"),
+         majority_race_eth = case_when(
+           nh_white_pop / tot_pop > 0.5 ~ "nh_white",
+           nh_black_pop / tot_pop > 0.5 ~ "nh_black",
+           nh_asian_pop / tot_pop > 0.5 ~ "nh_asian",
+           hispanic_pop / tot_pop > 0.5 ~ "hispanic",
+           (nh_white_pop + nh_black_pop + nh_asian_pop + hispanic_pop) /
+             tot_pop < 0.5 ~ "other",
+           TRUE ~ "None")) %>%
+  filter(tot_pop > 0, tot_hh > 0) %>%
+  select(GEOID, pct_rent_occ, pct_bach, pct_eng,
+         majority_inc, med_age, majority_race_eth, tot_pop)
+
+data <- ct_tracts %>%
+    mutate(hisp = ifelse(majority_race_eth == "hispanic", "Hispanic-majority", "non-hispanic-majority")) %>% 
+    mutate(age = ifelse(med_age > 40, "40+", "<40"))
+
+(plot1 <- ggplot(data, aes(x = pct_rent_occ, y = med_age, color = hisp)) + 
+    geom_point() + 
+    ggtitle("Median age v. rent occupied, %") + 
+    theme_fivethirtyeight() + 
+    labs(caption = "Hartford County, Connecticut; Source: American Community Survey"))
+
+(plot2 <- ggplot(data, aes(majority_race_eth, fill = age)) + 
+    geom_bar()  + 
+    ggtitle("Count of tracts by majority ethnicity and age") + 
+    theme_fivethirtyeight() + 
+    labs(caption = "Hartford County, Connecticut; Source: American Community Survey"))
+
+(plot3 <- ggplot(data, aes(x = pct_eng, y = pct_rent_occ)) + 
+    geom_smooth() + 
+    geom_point() + 
+    ggtitle("Rent occupied v. english speaking") +
+    theme_fivethirtyeight() + 
+    theme(axis.title = element_text(color="black")) +
+    ylab("percent rent occupied") + 
+    xlab("percent english speaking") + 
+    labs(caption = "Hartford County, Connecticut; Source: American Community Survey"))
+
+(plot4 <- ggplot(data, aes(tot_pop)) + 
+    geom_dotplot() + 
+    ggtitle("Distribution of tracts by population") + 
+    theme_fivethirtyeight() + 
+    theme(axis.text.y = element_blank()) + 
+    labs(caption = "Hartford County, Connecticut; Source: American Community Survey"))
+
+(plot5 <- ggplot(data, aes(med_age)) + 
+    geom_histogram() + 
+    facet_grid(.~hisp) + 
+    ggtitle("Distribution of tracts by age") + 
+    theme_fivethirtyeight() + 
+    labs(caption = "Hartford County, Connecticut; Source: American Community Survey"))
+  
+  
+```
